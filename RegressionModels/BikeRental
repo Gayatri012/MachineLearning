@@ -1,0 +1,211 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Feb 21 17:02:55 2018
+
+
+"""
+
+import sys
+import pandas as pd
+import numpy as np
+from sklearn import linear_model
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.neural_network import MLPRegressor
+from sklearn.model_selection import KFold
+from sklearn.neighbors import KNeighborsRegressor
+
+from sklearn.preprocessing import PolynomialFeatures
+
+# Read train and test data from files
+data = pd.read_csv(sys.argv[1])
+test = pd.read_csv(sys.argv[2])
+
+# Use only important attributes
+data1 = data.drop(data.columns[[0, 1, 2, 4, 15, 16]], axis=1, inplace=False)
+test1 = test.drop(test.columns[[0, 1, 2, 4, 15, 16]], axis=1, inplace=False)
+
+train_target = data1.iloc[:,-1]
+
+# Dummy variables
+train_data = pd.get_dummies(data1.iloc[:,:-1])
+
+test_data = pd.get_dummies(test1.iloc[:,:-1])
+test_target = test1.iloc[:,-1]
+
+# If any categorical value is present in the train data but absent in test data, add the category with value 0
+data_dummy_columns = list(train_data.columns.values)
+test_dummy_columns = list(test_data.columns.values)
+
+for i in data_dummy_columns:
+    if i not in test_dummy_columns:
+        test_data.insert(data_dummy_columns.index(i), i, 0)
+        
+# here we do a 5-fold Cross validation 
+kf = KFold(n_splits=5, shuffle = True)
+kf.get_n_splits(train_data)
+
+
+# Neural Networks
+print("Neural Network")
+print("---------------")
+
+MSE = 0.0
+MSE1 = 0.0
+MLPregr = MLPRegressor(hidden_layer_sizes=(10,15,10), max_iter=2000)
+    
+for train_index, test_index in kf.split(train_data):
+    MLPregr.fit(train_data.iloc[train_index],train_target.iloc[train_index])
+    predictions = MLPregr.predict(train_data.iloc[test_index])
+    
+    # Rounding off the predicted float value to int, since number of people is an int 
+    int_pred = []
+    int_pred.append(int(i) for i in predictions)
+    predictions = pd.DataFrame(data = int_pred)
+    predictions_transpose = predictions.transpose()
+    #MSE += sum((predictions - train_target.iloc[test_index])**2)/len(predictions)
+    MSE += sum((predictions_transpose - train_target.iloc[test_index])**2)/len(predictions_transpose)
+    
+print("MSE for Neural Network regression on train data", MSE/5.0)
+
+
+predicted = MLPregr.predict(test_data)
+test_prediction_int = []
+test_prediction_int.append(int(i) for i in predicted)
+    
+predicted = pd.DataFrame(data = test_prediction_int)
+predicted_transpose = predicted.transpose()
+    
+MSE1 = sum((predicted_transpose - test_target)**2)/len(predicted_transpose)
+
+print("MSE for Neural Network regression on test data", MSE1)
+
+
+# Linear regression
+"""
+train_data_np_array = train_data.as_matrix()
+test_data_np_array = test_data.as_matrix()
+
+X_trainT     = train_data_np_array.reshape(743,1)
+y_trainT     = test_data_np_array.reshape(743,1)
+"
+
+
+X_trainT     = train_data_np_array.reshape(train_data_np_array.size, 1000)
+y_trainT     = test_data_np_array.reshape(test_data_np_array.size, 1000)
+
+poly = PolynomialFeatures(degree=2, interaction_only = True)
+
+
+train_x_poly = poly.fit_transform(X_trainT)
+test_x_poly = poly.fit_transform(y_trainT)
+
+
+"""
+"""
+train_x_poly = poly.fit_transform(train_data)
+test_x_poly = poly.fit_transform(test_data)
+"""
+"""
+#train_x_poly_dummy = pd.get_dummies(train_x_poly)
+"""
+
+# Create linear regression object
+print("\nLinear Regression")
+print("------------------")
+
+regr = linear_model.LinearRegression()
+# Ridge
+#regrRidge = linear_model.Ridge(alpha = .05)
+# Lasso ...
+#regrLasso = linear_model.Lasso(alpha = .1)
+    
+
+MSE = 0.0
+#MSE_ridge = 0.0
+#MSE_lasso = 0.0
+
+for train_index, test_index in kf.split(train_data):
+    regr.fit(train_data.iloc[train_index],train_target.iloc[train_index])
+    linear_predictions = regr.predict(train_data.iloc[test_index])
+    '''
+    regrRidge.fit(train_x_poly[train_index],train_target.iloc[train_index])
+    linear_prediction_ridge = regrRidge.predict(train_x_poly[test_index])
+    
+    MSE_ridge += mean_squared_error(train_x_poly[train_index], linear_prediction_ridge)
+    
+    regrLasso.fit(train_x_poly[train_index],train_target.iloc[train_index])
+    linear_prediction_lasso = regrLasso.predict(train_x_poly[test_index])
+    
+    MSE_lasso += mean_squared_error(train_x_poly[train_index], linear_prediction_lasso)
+    '''
+    
+    # Rounding off the predicted float value to int, since number of people is an int 
+    int_pred = []
+    int_pred.append(int(i) for i in predictions)
+    predictions = pd.DataFrame(data = int_pred)
+    predictions_transpose = predictions.transpose()
+    #MSE += sum((linear_predictions - train_target.iloc[test_index])**2)/len(linear_predictions)
+    MSE += sum((predictions_transpose - train_target.iloc[test_index])**2)/len(predictions_transpose)
+
+print("MSE for Linear regression on train data", MSE/5.0)
+#print("MSE for Linear regression on train data using Ridge", MSE_ridge/5.0)
+#print("MSE for Linear regression on train data using Lasso", MSE_lasso/5.0)
+
+
+MSE1 = 0.0
+predicted_linear = regr.predict(test_data)
+
+test_prediction_int_linear = []
+test_prediction_int_linear.append(int(i) for i in predicted_linear)
+
+predicted_linear = pd.DataFrame(data = test_prediction_int_linear)
+predicted_linear_transpose = predicted_linear.transpose()
+    
+#MSE1 = sum((predicted_linear - test_target)**2)/len(predicted_linear)
+
+MSE1 = sum((predicted_linear_transpose - test_target)**2)/len(predicted_linear_transpose)
+print("MSE for Linear regression on test data", MSE1)
+'''
+predicted_linear_ridge = regrRidge.predict(test_x_poly)
+MSE_test_ridge = mean_squared_error(test_target, predicted_linear_ridge)
+print("MSE for Linear regression on test data for Ridge", MSE_test_ridge)
+
+
+predicted_linear_lasso = regrLasso.predict(test_x_poly)
+MSE_test_lasso = mean_squared_error(test_target, predicted_linear_lasso)
+print("MSE for Linear regression on test data for Lasso", MSE_test_lasso)
+'''
+
+#KNN Regression
+print("\nKNN")
+print("----")
+KNNRegr = KNeighborsRegressor(n_neighbors=5)
+
+MSE = 0.0
+for train_index, test_index in kf.split(train_data):
+ 
+    KNNRegr.fit(train_data.iloc[train_index],train_target.iloc[train_index])
+    KNN_predictions = KNNRegr.predict(train_data.iloc[test_index])
+    
+    # Rounding off the predicted float value to int, since number of people is an int 
+    int_pred = []
+    int_pred.append(int(i) for i in KNN_predictions)
+    KNN_predictions = pd.DataFrame(data = int_pred)
+    KNN_predictions_transpose = KNN_predictions.transpose()
+    #MSE += sum((KNN_predictions - train_target.iloc[test_index])**2)/len(KNN_predictions)
+    MSE += sum((KNN_predictions_transpose - train_target.iloc[test_index])**2)/len(KNN_predictions_transpose)
+
+print("MSE for KNN regression on train data", MSE/5.0)
+
+MSE1 = 0.0
+predicted_KNN = KNNRegr.predict(test_data)
+
+test_prediction_int_KNN = []
+test_prediction_int_KNN.append(int(i) for i in predicted_KNN)
+
+predicted_KNN = pd.DataFrame(data = test_prediction_int_KNN)
+predicted_KNN_transpose = predicted_KNN.transpose()
+
+MSE1 = sum((predicted_KNN_transpose - test_target)**2)/len(predicted_KNN_transpose)
+#MSE1 = sum((predicted_KNN - test_target)**2)/len(predicted_KNN)
+print("MSE for KNN regression on test data", MSE1)
