@@ -1,0 +1,2 @@
+Builds a classifier to classify people into two annual income groups - >50k and <=50k. 
+A number of factors like age, work class, sex, race, education, occupation, native country, etc. are considered to build this classifier. Neural networks and Support Vector machines are used for building this classifier. It is observed that both the methods perform almost equally well, and SVM in fact is slightly better than neural network.
